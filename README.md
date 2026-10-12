@@ -1,4 +1,11 @@
-# hrd-mcp-proxy
+# 🔌 HRD MCP 프록시 | HRD MCP Proxy
+
+> 공단 MCP 서버 중계용 Vercel 서버리스 프록시  
+> Vercel serverless proxy relaying HRD MCP servers
+
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square) ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square)
+
+---
 
 한국산업인력공단 MCP 서버(`openapi.hrdkorea.or.kr/mcp`)용 CORS 중계 프록시 (Vercel Serverless Function).
 
@@ -24,3 +31,9 @@ Content-Type: application/json
 ## 배포
 
 Vercel에 이 저장소를 import하면 자동 배포된다. `vercel.json`에서 함수 타임아웃 60초 설정.
+
+---
+
+## English Summary
+
+Vercel serverless proxy relaying HRD MCP servers.
