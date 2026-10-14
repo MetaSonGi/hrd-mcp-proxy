@@ -6,6 +6,9 @@
 const UPSTREAM = 'https://openapi.hrdkorea.or.kr/mcp';
 const ALLOWED_AREAS = new Set(['qual', 'overseas', 'ncs', 'dual', 'master', 'eps']);
 
+// upstream이 SSE 스트림이라 무한정 열려 있을 수 있음 → 유한 시간만 수집 후 반환
+const MAX_WAIT_MS = 20000;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -47,11 +50,34 @@ export default async function handler(req, res) {
         'Accept': 'application/json, text/event-stream',
       },
       body,
+      signal: AbortSignal.timeout(MAX_WAIT_MS),
     });
-    const text = await upstream.text();
+
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.status(upstream.status).send(text);
+    res.status(upstream.status);
+
+    // 스트림을 유한 시간 동안만 읽고(끊어질 때까지 기다리지 않음) 받은 만큼 반환
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let out = '';
+    const deadline = Date.now() + MAX_WAIT_MS;
+    try {
+      while (Date.now() < deadline) {
+        const msLeft = deadline - Date.now();
+        const { done, value } = await Promise.race([
+          reader.read(),
+          new Promise((resolve) => setTimeout(() => resolve({ done: true, value: null, _timeout: true }), msLeft)),
+        ]);
+        if (done) break;
+        if (value) out += decoder.decode(value, { stream: true });
+        // JSON-RPC 응답이 완결되면 즉시 종료
+        if (/"result"\s*:/.test(out) && out.includes('}')) break;
+      }
+    } catch { /* 부분 응답 그대로 반환 */ }
+    try { reader.cancel(); } catch { /* noop */ }
+    out += decoder.decode();
+    res.send(out || JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'upstream empty response' } }));
   } catch (e) {
     res.status(502).json({ error: 'upstream unreachable' });
   }
